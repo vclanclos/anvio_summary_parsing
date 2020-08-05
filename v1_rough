@@ -1,0 +1,63 @@
+
+rm(list=ls()) 
+library(dplyr)     
+library(tidyverse)
+library(plyr)
+
+data<-read.csv("PATH/TO/ANVIO/SUMMARY/TABLE.csv", header=T)
+map<-read.csv("PATH/TO/MAP/FILE/WITH/GENOMES/AND/SUBCLADE.csv", header=T)
+merged_data <-merge(data,map,by="genome_name")        #Adds the subclade column to the dataframe
+rearranged<-merged_data %>% arrange(gene_cluster_id)  #Rearranges for visibility
+
+#https://stackoverflow.com/questions/31661704/remove-group-from-data-frame-if-at-least-one-group-member-meets-condition
+#This gets rid of clusters that contain a non-III
+
+filtered_III<-rearranged %>%
+  group_by(gene_cluster_id) %>%           #This keeps the gene clusters grouped together 
+  filter(!any(subclade=="I" |subclade=="V"|subclade=="II"|subclade=="LD12" ))%>%    #Removes any cluster that contains subclades you DON'T want 
+  group_by(gene_cluster_id)               #This keeps the gene clusters grouped together. Likely redundant
+  
+  #Clusters that are missing from only 25% of genomes in a subclade, so present in 15/20 genomes AND not in other subclades. 
+  IIIa_conserved <- subset(filtered_III, num_genomes_gene_cluster_has_hits >='15')
+  IIIa_conserved_uniq<-unique(sort(IIIa_conserved$gene_cluster_id))
+  IIIa_conserved_uniq <- as.data.frame(IIIa_conserved_uniq)
+  
+
+#This gets rid of clusters that contain a non-IIIa.1
+filtered_IIIa.1<-rearranged %>%
+  group_by(gene_cluster_id) %>%
+  filter(!any(subclade=="I" |subclade=="V"|subclade=="II" |subclade=="IIIa.2"|subclade=="IIIa.3" |subclade=="LD12"))%>%
+  group_by(gene_cluster_id)
+
+  IIIa.1_conserved <- subset(filtered_IIIa.1, num_genomes_gene_cluster_has_hits=='8')
+
+#This gets rid of clusters that contain a non-IIIa.2
+filtered_IIIa.2<-rearranged %>%
+  group_by(gene_cluster_id) %>%
+  filter(!any(subclade=="I" |subclade=="V"|subclade=="II" |subclade=="IIIa.1"|subclade=="IIIa.3" |subclade=="LD12"))%>%
+  group_by(gene_cluster_id)
+
+  IIIa.2_conserved <- subset(filtered_IIIa.2, num_genomes_gene_cluster_has_hits=='5')
+  
+  #This gets rid of clusters that contain a non-IIIa.3
+filtered_IIIa.3<-rearranged %>%
+  group_by(gene_cluster_id) %>%
+  filter(!any(subclade=="I" |subclade=="V"|subclade=="II" |subclade=="IIIa.2"|subclade=="IIIa.1" |subclade=="LD12"))%>%
+  group_by(gene_cluster_id)
+
+  IIIa.1_conserved <- subset(filtered_IIIa.1, num_genomes_gene_cluster_has_hits=='8')
+  IIIa.1_conserved_unique<-unique(sort(IIIa.1_conserved$gene_cluster_id))
+  df <- ldply (IIIa.1_conserved_unique, data.frame)
+  df <- as.data.frame(IIIa.1_conserved_unique)
+
+  as.data.frame(IIIa.1_conserved_unique<-unique(sort(IIIa.1_conserved$gene_cluster_id)))
+  
+
+  
+#PARALOG/NUM_GENOMES To check for clusters that have paralogs that might be relevant
+
+paralog<- subset(rearranged, max_num_paralogs!=1)%>%  #removes rows with one paralog because I want genes that have copies in a single genome
+    group_by(gene_cluster_id) %>%       #groups IDs together so they don't get mixed
+    arrange(desc(para_over_numgenomes))  %>%    #sorts the data decending with highest paralog:genome ratio on top. These have high paralogs for a small number of genomes.
+    filter(any(subclade=="IIIa.1" | subclade=="IIIa.2" | subclade=="IIIa.3"))       #filters out the clusters that don't have any IIIs in them
+  
