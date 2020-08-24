@@ -1,0 +1,76 @@
+rm(list=ls()) 
+library(dplyr)     # load the package in your work environment
+library(tidyverse)
+library(plyr)
+
+data<-read.csv("~/Google Drive File Stream/My Drive/GroupIII_comparison/Analyses/Anvio/restart_53_genomes/enriched_fn_minbit_03/SAR11_53_pang_minbit_03_gene_clusters_summary_noaa.csv", header=T)
+map<-read.csv("~/Google Drive File Stream/My Drive/GroupIII_comparison/Analyses/Anvio/restart_53_genomes/enriched_fn_minbit_03/map.csv", header=T)
+merged_data <-merge(data,map,by="genome_name")
+rearranged<-merged_data %>% arrange(gene_cluster_id)  #Rearranges for visibility
+
+#https://stackoverflow.com/questions/31661704/remove-group-from-data-frame-if-at-least-one-group-member-meets-condition
+#Makes a df with clusters that contain a non-III
+other<-rearranged %>%
+  group_by(gene_cluster_id) %>%
+  filter(any(subclade=="I" |subclade=="V"|subclade=="II"|subclade=="LD12" ))%>%
+  group_by(gene_cluster_id)
+
+#This gets rid of clusters that contain a non-III
+filtered_III<-rearranged %>%
+  group_by(gene_cluster_id) %>%
+  filter(!any(subclade=="I" |subclade=="V"|subclade=="II"|subclade=="LD12" ))%>%
+  group_by(gene_cluster_id)
+
+#Make a sanity check that the clusters don't overlap
+overlap_tester<-other$gene_cluster_id %in% filtered_III$gene_cluster_id
+which(overlap_tester =="TRUE")
+which(overlap_tester =="FALSE")
+
+#Okay, the datasets have definitely parsed through and seperated clusters that do and dont contain non-IIIas.
+#These clusters don't overlap.
+
+#Clusters that are missing from only 25%, so present in 15/20 genomes and not in other subclades*****
+# Need to keep track that these are potentially larger things that make IIIs different than others
+#Nothing to do with unique genes or features in 261
+  IIIa_conserved <- subset(filtered_III, num_genomes_gene_cluster_has_hits >='15')
+  #IIIa_conserved_uniq<-unique(sort(IIIa_conserved$gene_cluster_id))
+  #IIIa_conserved_uniq <- as.data.frame(IIIa_conserved_uniq)
+  # Conserved <-merge(data,map,by="genome_name")
+  #TEST 
+  IIIa_conserved_sub<- unique(IIIa_conserved[c("gene_cluster_id", "COG_FUNCTION_ACC", "COG_FUNCTION","KeggGhostKoala_ACC","KeggGhostKoala")])
+
+  #Want to add in a way to crosscheck the COG numbers with other clusters
+  cog_overlaps<-IIIa_conserved_sub$COG_FUNCTION_ACC %in% other$COG_FUNCTION_ACC
+  which(cog_overlaps =="TRUE")
+  which(cog_overlaps =="FALSE")
+  non_overlapping_III_COGS<-IIIa_conserved_sub$COG_FUNCTION_ACC[cog_overlaps == FALSE]
+  non_overlapping_III_COGS <- as.data.frame(non_overlapping_III_COGS)
+  #Can we add in the data back to this one? Or will I need to then just manually look for what this stuff means?
+  """
+  This final dataframe sorting:
+    Clusters with only IIIs,include 75% of the 3s in them 
+    Within those clusters, COG check that they don't overlap with COGS of other subclades that were filtered out in the clusters
+    
+  """
+  
+################################################################################
+
+#This section will be to find unique functions filtered_III will be starting dataframe to dig through
+#Output in excel is the singleton COGS in the IIIs
+  count_test<-count(filtered_III, vars = "COG_FUNCTION_ACC")
+  singletons_sub <- subset(count_test, freq =='1')
+  singleton_overlaps<-singletons_sub$COG_FUNCTION_ACC %in% other$COG_FUNCTION_ACC
+  which(singleton_overlaps =="TRUE")
+  which(singleton_overlaps =="FALSE")
+  singl_non_overlap_III_COGS<-singletons_sub$COG_FUNCTION_ACC[singleton_overlaps == FALSE]
+  singl_non_overlap_III_COGS <- as.data.frame(singl_non_overlap_III_COGS)
+
+  
+  count_test_5<-count(filtered_III, vars = "COG_FUNCTION_ACC")
+  singletons_sub_5 <- subset(count_test_5, freq <='5' & freq !='1')
+  singleton_overlaps_5<-singletons_sub_5$COG_FUNCTION_ACC %in% other$COG_FUNCTION_ACC
+  which(singleton_overlaps_5 =="TRUE")
+  which(singleton_overlaps_5 =="FALSE")
+  singl_non_overlap_III_COGS_5<-singletons_sub_5$COG_FUNCTION_ACC[singleton_overlaps_5 == FALSE]
+  singl_non_overlap_III_COGS_5 <- as.data.frame(singl_non_overlap_III_COGS_5)
+  
